@@ -1,1 +1,43 @@
-name:%20Compilar%20BlissOS%20ISO%0A%0Aon:%0A%20%20workflow_dispatch:%0A%0Ajobs:%0A%20%20build:%0A%20%20%20%20runs-on:%20ubuntu-22.04%0A%20%20%20%20steps:%0A%20%20%20%20-%20name:%20Maximizar%20Espa%C3%A7o%20em%20Disco%0A%20%20%20%20%20%20uses:%20easimon/maximize-build-space@master%0A%20%20%20%20%20%20with:%0A%20%20%20%20%20%20%20%20root-reserve-mb:%205120%0A%20%20%20%20%20%20%20%20swap-size-mb:%201024%0A%20%20%20%20%20%20%20%20remove-dotnet:%20'true'%0A%20%20%20%20%20%20%20%20remove-android:%20'true'%0A%20%20%20%20%20%20%20%20remove-haskell:%20'true'%0A%0A%20%20%20%20-%20name:%20Instalar%20Depend%C3%AAncias%20de%20Compila%C3%A7%C3%A3o%0A%20%20%20%20%20%20run:%20%7C%0A%20%20%20%20%20%20%20%20sudo%20apt-get%20update%0A%20%20%20%20%20%20%20%20sudo%20apt-get%20install%20-y%20git-core%20gnupg%20flex%20bison%20gperf%20build-essential%20zip%20curl%20zlib1g-dev%20libgl1-mesa-dev%20libxml2-utils%20xsltproc%20unzip%20fontconfig%0A%0A%20%20%20%20-%20name:%20Baixar%20o%20C%C3%B3digo%20do%20BlissOS%20e%20Compilar%0A%20%20%20%20%20%20run:%20%7C%0A%20%20%20%20%20%20%20%20mkdir%20~/bin%0A%20%20%20%20%20%20%20%20curl%20https://googleapis.com%20%3E%20~/bin/repo%0A%20%20%20%20%20%20%20%20chmod%20a+x%20~/bin/repo%0A%20%20%20%20%20%20%20%20export%20PATH=~/bin:$PATH%0A%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20mkdir%20bliss%20&&%20cd%20bliss%0A%20%20%20%20%20%20%20%20repo%20init%20-u%20https://github.com%20-b%20bliss-v18.x%20--depth=1%0A%20%20%20%20%20%20%20%20repo%20sync%20-c%20-j$(nproc)%20--no-clone-bundle%20--no-tags%0A%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20.%20build/envsetup.sh%0A%20%20%20%20%20%20%20%20lunch%20bliss_x86_64-userdebug%0A%20%20%20%20%20%20%20%20mka%20iso_img%20-j$(nproc)%0A%0A%20%20%20%20-%20name:%20Upload%20da%20ISO%20Pronta%0A%20%20%20%20%20%20uses:%20actions/upload-artifact@v4%0A%20%20%20%20%20%20with:%0A%20%20%20%20%20%20%20%20name:%20BlissOS-ISO%0A%20%20%20%20%20%20%20%20path:%20bliss/out/target/product/x86_64/*.iso%0A
+name: Compilar BlissOS ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Maximizar Espaço em Disco
+      uses: easimon/maximize-build-space@v8
+      with:
+        root-reserve-mb: 5120
+        swap-size-mb: 1024
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+
+    - name: Instalar Dependências de Compilação
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+
+    - name: Baixar o Código do BlissOS e Compilar
+      run: |
+        mkdir ~/bin
+        curl https://googleapis.com > ~/bin/repo
+        chmod a+x ~/bin/repo
+        export PATH=~/bin:$PATH
+        
+        mkdir bliss && cd bliss
+        repo init -u https://github.com -b bliss-v18.x --depth=1
+        repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+        
+        . build/envsetup.sh
+        lunch bliss_x86_64-userdebug
+        mka iso_img -j$(nproc)
+
+    - name: Upload da ISO Pronta
+      uses: actions/upload-artifact@v4
+      with:
+        name: BlissOS-ISO
+        path: bliss/out/target/product/x86_64/*.iso
